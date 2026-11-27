@@ -29,6 +29,7 @@ use crate::pipeline::host::HostPipeline;
 #[cfg(feature = "diagnostics")]
 pub(crate) mod rtv_trace;
 
+#[cfg_attr(not(test), allow(dead_code))]
 fn is_depth_srv(desc: &[u32; 10]) -> bool {
     let format = DXGI_FORMAT(crate::resource::pc_format(desc[0]) as i32);
     // In a Texture2D SRV, the union starts at word 4 and PlaneSlice is word 6.
@@ -3461,7 +3462,10 @@ impl State {
         let view = crate::descriptor::view(table + u64::from(offset) * 4)?;
         let view = crate::descriptor::host::placed_texture(&view).unwrap_or(view);
         let resource = match (kind, view) {
-            (ResourceType::Srv, View::Shader(r, desc)) if desc.as_ref().is_none_or(is_depth_srv) => r,
+            // Any shader view, as before fa8fc1d: on an RTX 5080 under Proton the
+            // stricter depth filter rejected the resolve's depth view, which turned
+            // the indirect-light stand-in off ("missing depth SRV").
+            (ResourceType::Srv, View::Shader(r, _)) => r,
             (ResourceType::Uav, View::Unordered(r, ..)) => r,
             _ => return None,
         };
